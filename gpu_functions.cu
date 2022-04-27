@@ -2,7 +2,7 @@
 
 // ---------------------------------- __device__ functions (helper funcs, wave funcs, potential etc.) ------------------------------------------- 
 
-__device__ double psi_loc(double a0, double L, double r) {
+__device__ double psi_loc(double a0, double r) {
 
 	const double pi = 3.14159265359;
 	double psi = exp(-r / a0)  / sqrt( pow(a0, 3) * pi);
@@ -43,14 +43,7 @@ __global__ void initRand(unsigned int seed, int runCounter, curandState_t* state
 // stores numPoints function values in gpu_f and as much squares in gpu_f2
 __global__ void intMC_J_ee_exch(curandState_t* states, constants* gpu_constants_SI, double* gpu_f, double* gpu_f2, const int dim, double k, double phi_k) {
 	
-	double rho_1, rho_2, phi_1, phi_2, z_1, z_2;
-	double r, r_1, r_2; // distance for potential V
-
-	double psi_free_1, psi_free_2, psi_loc_1, psi_loc_2;
-	double V; // value of potential V
-	double k_factor_real, k_factor_im; // contains q-dependency assuming Q = Q' = 0
-
-	double detTheta;
+	double rho, Rho, phi, Phi, z, Z; // (assume vectors) R = 1/2 (r_1 + r_2), r = r_1 - r_2 --> double cylindrical
 
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	int stride = blockDim.x * gridDim.x;
@@ -65,37 +58,43 @@ __global__ void intMC_J_ee_exch(curandState_t* states, constants* gpu_constants_
 		rands[4] = curand_uniform_double(&states[dim * i + 4]);
 		rands[5] = curand_uniform_double(&states[dim * i + 5]);
 		
-		rho_1 = rands[0] * gpu_constants_SI->maxRho;
-		rho_2 = rands[1] * gpu_constants_SI->maxRho;
-		phi_1 = rands[2] * 2 * gpu_constants_SI->pi;
-		phi_2 = rands[3] * 2 * gpu_constants_SI->pi;
-		z_1 = rands[4] * gpu_constants_SI->maxZ - gpu_constants_SI->maxZ / 2;
-		z_2 = rands[5] * gpu_constants_SI->maxZ - gpu_constants_SI->maxZ / 2;
-		
-		// calc distances for potential and wfs
-		r = pow(rho_1, 2) + pow(rho_2, 2) - 2 * rho_1 * rho_2 * cos(phi_1 - phi_2);
-		r_1 = sqrt(pow(rho_1, 2) + pow(z_1, 2));
-		r_2 = sqrt(pow(rho_2, 2) + pow(z_2, 2));
-
-		// evaluate the V_I potential
-		V = gpu_constants_SI->e2eps * Coul_pot(r);
-
+		rho = rands[0] * gpu_constants_SI->maxRho;
+		Rho = rands[1] * gpu_constants_SI->maxRho;
+		phi = rands[2] * 2 * gpu_constants_SI->pi;
+		Phi = rands[3] * 2 * gpu_constants_SI->pi;
+		z = rands[4] * gpu_constants_SI->maxZ - gpu_constants_SI->maxZ / 2;
+		Z = rands[5] * gpu_constants_SI->maxZ - gpu_constants_SI->maxZ / 2;
+				
 		// evalute k-factor
-		double k_factor_arg = k * (rho_2 * cos(phi_2) - rho_1 * cos(phi_1 - phi_k)); //= k . rho_2 - k'. rho_1 
-		k_factor_real = cos(k_factor_arg);
-		//k_factor_im = sin(k_factor_arg); // should lead to 0 due to symmetry, we could check
+		double k_factor_arg = -k * (2 * Rho * sin(phi_k / 2) * sin(Phi - phi_k / 2) 
+									  + rho * cos(phi_k / 2) * cos(phi - phi_k / 2));//rho_2 * cos(phi_2) - rho_1 * cos(phi_1 - phi_k)); //= k . rho_2 - k'. rho_1 
+		double k_factor_real = cos(k_factor_arg);
+		//double k_factor_im = sin(k_factor_arg); // leads to 0 due to symmetry [checked]
+		
+		// evaluate coords for wave functions & potential
+		double R2 = pow(Rho, 2) + pow(Z, 2), R = sqrt(R2);
+		double r2 = pow(rho, 2) + pow(z, 2), r = sqrt(r2);
+		double rRcos = R * r * cos(Phi - phi);
+
+		double r_1 = sqrt(R2 + r2 / 4 + rRcos);
+		double r_2 = sqrt(R2 + r2 / 4 - rRcos);
+
+		double z_1 = Z + z / 2, z_2 = Z - z / 2;
 
 		// evaluate wave functions
-		psi_free_1 = psi_free(gpu_constants_SI->L, gpu_constants_SI->S, z_1);
-		psi_free_2 = psi_free(gpu_constants_SI->L, gpu_constants_SI->S, z_2);
-		psi_loc_1 = psi_loc(gpu_constants_SI->a0, gpu_constants_SI->L, r_1);
-		psi_loc_2 = psi_loc(gpu_constants_SI->a0, gpu_constants_SI->L, r_2);
+		double psi_free_1 = psi_free(gpu_constants_SI->L, gpu_constants_SI->S, z_1);
+		double psi_free_2 = psi_free(gpu_constants_SI->L, gpu_constants_SI->S, z_2);
+		double psi_loc_1 = psi_loc(gpu_constants_SI->a0, r_1);
+		double psi_loc_2 = psi_loc(gpu_constants_SI->a0, r_2);
+
+		// evaluate the V_I potential
+		double V = gpu_constants_SI->e2eps * Coul_pot(r);
 
 		// don't forget about the jacobian
-		detTheta = rho_1 * rho_2;// jacobi determinant of new double cylindrical coordinates
+		double detTheta = rho * Rho;// jacobi determinant of new double cylindrical coordinates
 
 		// now we simply evaluate the complete integrand
-		gpu_f[i] = gpu_constants_SI->S * detTheta * k_factor_real * psi_free_1 * psi_loc_2 * V * psi_free_2 * psi_loc_1 / gpu_constants_SI->e * 1e6; // in micro eV * m2
+		gpu_f[i] = gpu_constants_SI->S * detTheta * k_factor_real * psi_free_1 * psi_loc_2 * V * psi_free_2 * psi_loc_1 / gpu_constants_SI->e * 1e6 * 1e12; // in micro eV * m2
 		gpu_f2[i] = gpu_f[i] * gpu_f[i]; // here we store their squares to get <f^2> -> int error
 	}
 	delete[] rands;

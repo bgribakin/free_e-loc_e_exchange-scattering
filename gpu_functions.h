@@ -16,7 +16,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 		if (abort) exit(code);
 	}
 }
-__device__ double psi_loc(double a0, double L, double r);
+__device__ double psi_loc(double a0, double r);
 __device__ double psi_free(double L, double S, double z_e);
 __device__ double Coul_pot(double r);
 __global__ void initRand(unsigned int seed, int runCounter, curandState_t* states);

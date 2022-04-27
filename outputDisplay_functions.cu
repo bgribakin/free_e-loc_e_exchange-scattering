@@ -83,7 +83,7 @@ int keyboard_control(char* filename, double temp_res, double temp_err, int runCo
 			_getch(); // wait for a second key press to continue calculation
 
 			printf("       ______________________________________________________________________\n");
-			printf("       J_X-e   &   error, mueV*mum^2  |  total points  |   elapsed time\n");
+			printf("       J_e-e   &   error, mueV*mum^2  |  total points  |   elapsed time\n");
 			return 1;
 		}
 
@@ -97,7 +97,7 @@ int keyboard_control(char* filename, double temp_res, double temp_err, int runCo
 	}
 }
 
-time_t live_control_and_display(char* filename, time_t tic, long long int runCounter, double V_MC, double cpu_f_sum, double cpu_f2_sum) {
+int live_control_and_display(char* filename, time_t tic, long long int runCounter, double V_MC, double cpu_f_sum, double cpu_f2_sum) {
 
 	double temp_res, temp_err;
 
@@ -108,7 +108,7 @@ time_t live_control_and_display(char* filename, time_t tic, long long int runCou
 	time_t toc = clock();
 	data_display(temp_res, temp_err, runCounter, tic, toc);
 
-	if (temp_err < tol) {
+	if (temp_err < tol * temp_res) {
 		return 1;
 	}
 	// keyboard control

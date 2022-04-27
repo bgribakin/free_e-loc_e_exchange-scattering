@@ -12,7 +12,7 @@ double init_constants_SI(constants* constants_SI, double m_e, double eps, double
 	constants_SI->m_e = 9.109383561e-31 * m_e; // eff e mass in CdTe
 	constants_SI->a0 = a0;
 	constants_SI->L = L;
-	constants_SI->maxRho = a0 * 3;
+	constants_SI->maxRho = a0 * 15;
 	constants_SI->maxZ = L;
 	constants_SI->S = 1; // this shouldn't affect anything, but it feels better to take it into account
 
