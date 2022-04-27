@@ -9,21 +9,27 @@ void f_head_display(char* filename) {
 		printf("Failed opening file \"%s\"! \n", filename);
 		exit(0);
 	}
-	fprintf(F, "\n       ______________________________________________________________________\n");
-	fprintf(F, "       J_X-e   &   error, mueV*mum^2  |  total points  |   elapsed time\n");
+	fprintf(F, "________________________________________________________________________________________\n");
+	fprintf(F, " k (1/a0) & phi_k (pi) | J_loc-free & err (mueV*mum^2) |  total points  |   elapsed time\n");
 	fclose(F);
 }
 
-void f_data_display(char* filename, double temp_res, double temp_err, int runCounter, time_t tic, time_t toc) {
+void f_data_display(char* filename, double k, double phi_k, double cpu_f_sum, double cpu_f2_sum, int runCounter, double V_MC, time_t tic, time_t toc) {
 	
 	FILE* F = fopen(filename, "a");
 	if (F == NULL) {
 		printf("Failed opening file \"%s\"! \n", filename);
 		exit(0);
 	}
+	double temp_res = V_MC * cpu_f_sum / ((runCounter + 1) * numPoints);
+	double temp_err = 3 * V_MC / sqrt((runCounter + 1) * numPoints)
+		* sqrt(cpu_f2_sum / ((runCounter + 1) * numPoints) - cpu_f_sum * cpu_f_sum / ((runCounter + 1) * numPoints) / ((runCounter + 1) * numPoints));
+
+	fprintf(F, "%8.2f\t%.2f", k, phi_k / 3.14);
 	fprintf(F, "\t%13e\t%12e", temp_res, temp_err);
 	fprintf(F, "\t %9e", (double)(runCounter + 1) * numPoints);
 	fprintf(F, "\t  %7e", double(toc - tic) / CLOCKS_PER_SEC);
+	fprintf(F, "\n");
 
 	fclose(F);
 }
@@ -39,20 +45,21 @@ void head_display() {
 	printf("  \t'b' -- break\n");
 	printf("  Program will terminate when the error is less than tol = %e\n", tol);
 
-	printf("       ______________________________________________________________________\n");
-	printf("       J_X-e   &   error, mueV*mum^2  |  total points  |   elapsed time\n");
+	printf("________________________________________________________________________________________\n");
+	printf(" k (1/a0) & phi_k (pi) | J_loc-free & err, mueV*mum^2  |  total points  |   elapsed time\n");
 }
 
-void data_display(double temp_res, double temp_err, int runCounter, time_t tic, time_t toc) {
+void data_display(double k, double phi_k, double temp_res, double temp_err, int runCounter, time_t tic, time_t toc) {
 
 	for (int bCount = 0; bCount < 150; bCount++) // erase old line
 		printf("\b");
+	printf("\t%.2f\t%.2f", k, phi_k / 3.14);
 	printf("\t%13e\t%12e", temp_res, temp_err);
 	printf("\t %9e", (double)(runCounter + 1) * numPoints);
 	printf("\t  %7e", double(toc - tic) / CLOCKS_PER_SEC);
 }
 
-int keyboard_control(char* filename, double temp_res, double temp_err, int runCounter, time_t tic, time_t toc) {
+int keyboard_control(char* filename, double k, double phi_k, double temp_res, double temp_err, int runCounter, time_t tic, time_t toc) {
 
 	if (_kbhit()) {
 		char kb = _getch(); // consume the char from the buffer, otherwise _kbhit remains != 0
@@ -97,7 +104,7 @@ int keyboard_control(char* filename, double temp_res, double temp_err, int runCo
 	}
 }
 
-int live_control_and_display(char* filename, time_t tic, long long int runCounter, double V_MC, double cpu_f_sum, double cpu_f2_sum) {
+int live_control_and_display(char* filename, time_t tic, long long int runCounter, double V_MC, double cpu_f_sum, double cpu_f2_sum, double k, double phi_k) {
 
 	double temp_res, temp_err;
 
@@ -106,13 +113,13 @@ int live_control_and_display(char* filename, time_t tic, long long int runCounte
 		* sqrt(cpu_f2_sum / ((runCounter + 1) * numPoints) - cpu_f_sum * cpu_f_sum / ((runCounter + 1) * numPoints) / ((runCounter + 1) * numPoints));
 
 	time_t toc = clock();
-	data_display(temp_res, temp_err, runCounter, tic, toc);
+	data_display(k, phi_k, temp_res, temp_err, runCounter, tic, toc);
 
 	if (temp_err < tol * temp_res) {
 		return 1;
 	}
 	// keyboard control
-	keyboard_control(filename, temp_res, temp_err, runCounter, tic, toc);
+	keyboard_control(filename, k, phi_k, temp_res, temp_err, runCounter, tic, toc);
 }
 
 void finish_display() {
