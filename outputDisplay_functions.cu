@@ -53,6 +53,7 @@ void data_display(double k, double phi_k, double temp_res, double temp_err, int 
 
 	for (int bCount = 0; bCount < 150; bCount++) // erase old line
 		printf("\b");
+
 	printf("\t%.2f\t%.2f", k, phi_k / 3.14);
 	printf("\t%13e\t%12e", temp_res, temp_err);
 	printf("\t %9e", (double)(runCounter + 1) * numPoints);
@@ -63,13 +64,12 @@ int keyboard_control(char* filename, double k, double phi_k, double temp_res, do
 
 	if (_kbhit()) {
 		char kb = _getch(); // consume the char from the buffer, otherwise _kbhit remains != 0
-
 		// next
 		if (kb == 'n') {			
 			printf("\n=============================================================================================================================\n\n");
 			printf(" Skipping to next calculation...\n\n");
 			printf("=============================================================================================================================\n\n\n");
-			return 0;
+			return 1;
 		}
 
 		// pause-unpause
@@ -91,7 +91,7 @@ int keyboard_control(char* filename, double k, double phi_k, double temp_res, do
 
 			printf("       ______________________________________________________________________\n");
 			printf("       J_e-e   &   error, mueV*mum^2  |  total points  |   elapsed time\n");
-			return 1;
+			return 0;
 		}
 
 		// exit program
@@ -115,7 +115,7 @@ int live_control_and_display(char* filename, time_t tic, long long int runCounte
 	time_t toc = clock();
 	data_display(k, phi_k, temp_res, temp_err, runCounter, tic, toc);
 
-	if (temp_err < tol * temp_res) {
+	if (temp_err < tol) {
 		return 1;
 	}
 	// keyboard control

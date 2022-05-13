@@ -30,7 +30,7 @@ int main() {
 
 	double m_e = 0.11; // eff e mass in CdTe, units of m0
 	double eps = 10.2; // static dielectric constant in CdTe
-	double a0 = 3e-9; // Bohr radius of the localized electron, m
+	double a0 = 4e-9; // Bohr radius of the localized electron, m
 	double L = 20e-9; // QW width, m
 	double V_MC = init_constants_SI(constants_SI, m_e, eps, a0, L); // initializes struct pointer with constants: pi, hbar, e2eps, m_e, and a0; also calculates V_MC
 
